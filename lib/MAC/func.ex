@@ -15,11 +15,12 @@ defmodule MAC.Func do
       :y_size => y_size,
       :z_size => z_size}=information,
     %{:max_ite_times => max_ite_times,
-      :error_p => error_p}=calc_info do
-    right_side = for k <- 0..z_size do
-      for j <- 0..y_size do
-        for i <- 0..x_size do
-          if 0<i && 0<j && 0<k && i<x_size && j<y_size && k<z_size do
+      :error_p => error_p,
+      :omega => omega} do
+    right_side = for k <- 0..(z_size-1) do
+      for j <- 0..(y_size-1) do
+        for i <- 0..(x_size-1) do
+          if 0<i && 0<j && 0<k && i<(x_size-1) && j<(y_size-1) && k<(z_size-1) do
             calcRSide {i,j,k}, velocitys_field, information
           else
             0
@@ -27,60 +28,86 @@ defmodule MAC.Func do
         end
       end
     end
-
-    derive_pressure_recursive_fn = fn(current_pressure, ite_times) ->
-      if ite_times > max_ite_times do
-        {:bad, current_pressure}
-      else
-        {has_calced, next_pressure, residual} = try do
-                                                  {true, derivePreStep(current_pressure, right_side, bc_field, dx,dy,dx,x_size,y_size,z_size, calc_info)}
-                                                rescue
-                                                  _ -> {false, {current_pressure, 0}}
-                                                end
-        if has_calced do
-          if residual < error_p do
-            {:ok, next_pressure}
-          else
-            derive_pressure_recursive_fn next_pressure, ite_times+1
-          end
+    IO.inspect right_side
+    {status, new_pressure, residual_field} = derivePreRecurse(0, right_side, pressure, nil, bc_field,
+      information,
+      max_ite_times, error_p, omega)
+    {status, new_pressure}
+  end
+  def derivePreRecurse ite_times, right_side, pressure, residual, bc_field,
+    %{:dx => dx,
+      :dy => dy,
+      :dz => dz,
+      :x_size => x_size,
+      :y_size => y_size,
+      :z_size => z_size}=information,
+    max_ite_times, error_p, omega do
+    #NOTE: these calculation information calues are arranged in derivePre for multi-grid scheme
+    if ite_times > max_ite_times do
+      {:bad, pressure, residual}
+    else
+      {has_calced, {new_pressure, new_residual, residual_value}} = try do
+                                                                     {true, derivePreStep(pressure, right_side, bc_field, dx,dy,dx,x_size,y_size,z_size, omega)}
+                                                                   rescue
+                                                                     err ->
+                                                                       IO.puts "[Error] #{inspect err}"
+                                                                     {false, {pressure, residual, 0}}
+                                                                   end
+      if has_calced do
+        if residual_value < error_p do
+          {:ok, new_pressure, new_residual}
         else
-          {:error, current_pressure}
+          IO.inspect new_pressure
+          derivePreRecurse(ite_times+1, right_side, new_pressure, new_residual, bc_field,
+            information,
+            max_ite_times, error_p, omega)
         end
+      else
+        {:error, pressure, residual}
       end
     end
-    derive_pressure_recursive_fn pressure, 0
   end
 
   def derivePreStep pressure, right_side, bc_field,
     dx, dy, dz,
     x_size, y_size, z_size,
-    %{:omega => omega} do
+    omega do
     divide_val = 2*(1/(dx*dx) + 1/(dy*dy) + 1/(dz*dz))
-    new_pressure = for k <- 0..z_size do
-      for j <- 0..y_size do
-        for i <- 0..x_size do
+    new_pressure = for k <- 0..(z_size-1) do
+      for j <- 0..(y_size-1) do
+        for i <- 0..(x_size-1) do
           if id(bc_field, {i,j,k}) == nil do
-            if 0<i && 0<j && 0<k && i<x_size && j<y_size && k<z_size do
-              dp = (((id(pressure, {i+1,j,k}) + id(pressure, {i-1,j,k})) / (2*dx))
+            if 0<i && 0<j && 0<k && i<(x_size-1) && j<(y_size-1) && k<(z_size-1) do
+              dp = ((((id(pressure, {i+1,j,k}) + id(pressure, {i-1,j,k})) / (2*dx))
                 + ((id(pressure, {i,j+1,k}) + id(pressure, {i,j-1,k})) / (2*dy))
                 + ((id(pressure, {i,j,k+1}) + id(pressure, {i,j,k-1})) / (2*dz))
-                + id(right_side, {i,j,k})) /
-              divide_val
+                - id(right_side, {i,j,k})) /
+                divide_val) -
+              id(pressure, {i,j,k})
               {id(pressure, {i,j,k}) + omega*dp, dp*dp}
             else
-              id(pressure, {i,j,k})
+              {id(pressure, {i,j,k}), 0}
             end
           else
-            id(bc_field, {i,j,k})
+            {id(bc_field, {i,j,k}), 0}
           end
         end
       end
     end
     residual = Enum.reduce List.flatten(new_pressure), 0, fn({_p, dr}, acm) -> acm+dr end
-    {for k <- 0..z_size do
-         for j <- 0..y_size do
-           for i <- 0..x_size do
-             id(new_pressure, {i,j,k})
+    {for k <- 0..(z_size-1) do
+         for j <- 0..(y_size-1) do
+           for i <- 0..(x_size-1) do
+             {p, _dr} = id(new_pressure, {i,j,k})
+             p
+           end
+         end
+     end,
+     for k <- 0..(z_size-1) do
+         for j <- 0..(y_size-1) do
+           for i <- 0..(x_size-1) do
+             {_p, dr} = id(new_pressure, {i,j,k})
+             dr
            end
          end
      end,

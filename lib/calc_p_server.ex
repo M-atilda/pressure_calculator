@@ -11,20 +11,25 @@ defmodule CalcPServer do
       :world
 
   """
-  @name p_server_name :g_p_calc_server
+  def hello do
+    :world
+  end
+  @name :g_p_calc_server
   import MAC.Func
+  
 
+  #TODO: make server for each calculation (and give them original name)
   def calcPre velocitys_field, pressure_field, bc_field, information do
-    server_name = :global.whereis_name(@name)
-    send server_name, {:calc, velocitys_field, pressure_field, bc_field, information, self}
+    server = :global.whereis_name(@name)
+    send server, {:calc, velocitys_field, pressure_field, bc_field, information, self}
     receive do
-      {simbol, result, ^server_name} ->
+      {simbol, result, ^server} ->
         case simbol do
           :error ->
             raise RuntimeError
-          _ ->
+          status ->
             #TODO: when receive :bad(calculation hasnot finished in max iteration times)
-            result
+            {status, result}
         end
     end
   end
@@ -37,7 +42,7 @@ defmodule CalcPServer do
   def calc_server calc_info do
     receive do
       {:calc, velocitys_field, pressure_field, bc_field, information, client} ->
-        {status, result} = derivePre velocitys_field, pressure, bc_field, information, calc_info
+        {status, result} = derivePre velocitys_field, pressure_field, bc_field, information, calc_info
         send client, {status, result, self}
     end
     calc_server calc_info
