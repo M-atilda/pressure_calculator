@@ -45,7 +45,7 @@ defmodule MAC.Func do
                                                                    end
       if has_calced do
         try do
-          IO.puts "#(P) {round(:math.log(new_res_value) / :math.log(error_p) * 100)}% #{inspect DateTime.utc_now}"
+          IO.puts "(P) #{round(:math.log(new_res_value) / :math.log(error_p) * 100)}% #{inspect DateTime.utc_now}"
         rescue
           _ -> nil
         end
