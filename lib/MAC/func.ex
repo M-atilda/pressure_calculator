@@ -44,7 +44,11 @@ defmodule MAC.Func do
                                                                      {false, {pressure, nil, 0}}
                                                                    end
       if has_calced do
-        IO.puts "#{round(:math.log(new_res_value) / :math.log(error_p) * 100)}% #{inspect DateTime.utc_now}"
+        try do
+          IO.puts "#(P) {round(:math.log(new_res_value) / :math.log(error_p) * 100)}% #{inspect DateTime.utc_now}"
+        rescue
+          _ -> nil
+        end
         if new_res_value < error_p do
           {:ok, new_pressure}
         else

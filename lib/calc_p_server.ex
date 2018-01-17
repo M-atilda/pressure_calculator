@@ -33,6 +33,7 @@ defmodule CalcPServer do
   end
 
   def genCalcServer calc_info do
+    IO.puts "[Info] start calc_P_server <#{inspect pid}>"
     pid = spawn(__MODULE__, :calc_server, [calc_info])
     :global.register_name(@name, pid)
   end
