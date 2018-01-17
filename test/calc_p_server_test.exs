@@ -1,26 +1,28 @@
 defmodule CalcPServerTest do
   use ExUnit.Case
   doctest CalcPServer
+  @tag timeout: 3600000
 
   test "calculate next step's pressure" do
-    v_field = List.duplicate(List.duplicate([0|List.duplicate(1, 7)], 8), 8)
-    p_field = List.duplicate(List.duplicate(List.duplicate(1, 8), 8), 8)
-    bc_field = for k <- 0..7 do
-      for j <- 0..7 do
-        for i <- 0..7 do
-          if 4==i && 4==j && 4==k do
-            0
+    v_field = List.duplicate(List.duplicate([0] ++ List.duplicate(1, 99) ++ [2], 101), 101)
+    p_field = List.duplicate(List.duplicate([0] ++ List.duplicate(1, 99) ++ [2], 101), 101)
+    bc_field = for k <- 0..100 do
+      for j <- 0..100 do
+        for i <- 0..100 do
+          if 49 == i || 49 == j || 49 == k do
+            10
           else
             nil
           end
         end end end
     CalcPServer.genCalcServer %{:max_ite_times => 100,
                                 :error_p => 0.0001,
-                                :omega => 1}
+                                :omega => 1,
+                                :max_res_ratio => 0.5}
     {status, result} = CalcPServer.calcPre {v_field, v_field, v_field}, p_field, bc_field,
-      %{:x_size => 8,
-        :y_size => 8,
-        :z_size => 8,
+      %{:x_size => 101,
+        :y_size => 101,
+        :z_size => 101,
         :dx => 0.1,
         :dy => 0.1,
         :dz => 0.1,

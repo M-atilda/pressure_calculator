@@ -11,9 +11,7 @@ defmodule CalcPServer do
       :world
 
   """
-  def hello do
-    :world
-  end
+  def hello, do: :world
   @name :g_p_calc_server
   import MAC.Func
   
