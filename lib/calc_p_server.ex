@@ -37,10 +37,17 @@ defmodule CalcPServer do
     :global.register_name(@name, pid)
     IO.puts "[Info] start calc_P_server <#{inspect pid}>"
   end
+  def genCalcServer do
+    genCalcServer %{:max_ite_times => 100,
+                    :error_p => 0.0001,
+                    :omega => 1,
+                    :max_res_ratio => 0.5}
+  end
 
   def calc_server calc_info do
     receive do
       {:calc, velocitys_field, pressure_field, bc_field, information, client} ->
+        IO.puts "[Info] pressure calculation <#{inspect client}> #{inspect DateTime.utc_now}"
         {status, result} = derivePre velocitys_field, pressure_field, bc_field, information, calc_info
         send client, {status, result, self}
     end

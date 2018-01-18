@@ -14,13 +14,30 @@ defmodule MAC.Func do
       :error_p => error_p,
       :omega => omega,
       :max_res_ratio => max_res_ratio} do
-    IO.puts "[Info] start calc right_side #{inspect DateTime.utc_now}"
+    x_half_size = round((x_size-1) / 2)
+    y_half_size = round((y_size-1) / 2)
+    left_up_dp_task = Task.async(fn -> calcRSidePartially {0..x_half_size, 0..y_half_size}, velocitys_field, information end)
+    left_down_dp_task = Task.async(fn -> calcRSidePartially {0..x_half_size, (y_half_size+1)..(y_size-1)}, velocitys_field, information end)
+    right_up_dp_task = Task.async(fn -> calcRSidePartially {(x_half_size+1)..(x_size-1), 0..y_half_size}, velocitys_field, information end)
+    right_down_dp_task = Task.async(fn -> calcRSidePartially {(x_half_size+1)..(x_size-1), (y_half_size+1)..(y_size-1)}, velocitys_field, information end)
+    left_up_dp = Task.await(left_up_dp_task)
+    left_down_dp = Task.await(left_down_dp_task)
+    right_up_dp = Task.await(right_up_dp_task)
+    right_down_dp = Task.await(right_down_dp_task)
     right_side = Enum.map(Enum.to_list(0..(y_size-1)), fn(j) ->
       for i <- 0..(x_size-1) do
-        calcRSide {i,j}, velocitys_field, information
+        cond do
+          i<(x_half_size+1) && j<(y_half_size+1) ->
+            id(left_up_dp, {i,j})
+          i<(x_half_size+1) && j>y_half_size ->
+            id(left_down_dp, {i,j-y_half_size-1})
+          i>x_half_size && j<(y_half_size+1) ->
+            id(right_up_dp, {i-x_half_size-1,j})
+          i>x_half_size && j>y_half_size ->
+            id(right_down_dp, {i-x_half_size-1,j-y_half_size-1})
+        end
       end
     end)
-    IO.puts "[Info] start derivePreRecurse #{inspect DateTime.utc_now}"
     derivePreRecurse(0, right_side, pressure, bc_field,
       information,
       max_ite_times, error_p, omega,
@@ -83,8 +100,52 @@ defmodule MAC.Func do
     x_size, y_size,
     omega do
     divide_val = 2*(1/(dx*dx) + 1/(dy*dy))
+
+
+    # divide to 4 spaces for pararell processing
+    x_half_size = round((x_size-1) / 2)
+    y_half_size = round((y_size-1) / 2)
+    left_up_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, {dx,dy}, {x_size,y_size}, {0..x_half_size, 0..y_half_size} end)
+    left_down_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, {dx,dy}, {x_size,y_size}, {0..x_half_size, (y_half_size+1)..(y_size-1)} end)
+    right_up_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, {dx,dy}, {x_size,y_size}, {(x_half_size+1)..(x_size-1), 0..y_half_size} end)
+    right_down_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, {dx,dy}, {x_size,y_size}, {(x_half_size+1)..(x_size-1), (y_half_size+1)..(y_size-1)} end)
+    left_up_dp = Task.await(left_up_dp_task)
+    left_down_dp = Task.await(left_down_dp_task)
+    right_up_dp = Task.await(right_up_dp_task)
+    right_down_dp = Task.await(right_down_dp_task)
     dp_field = Enum.map(Enum.to_list(0..(y_size-1)), fn(j) ->
       for i <- 0..(x_size-1) do
+        cond do
+          i<(x_half_size+1) && j<(y_half_size+1) ->
+            id(left_up_dp, {i,j})
+          i<(x_half_size+1) && j>y_half_size ->
+            id(left_down_dp, {i,j-y_half_size-1})
+          i>x_half_size && j<(y_half_size+1) ->
+            id(right_up_dp, {i-x_half_size-1,j})
+          i>x_half_size && j>y_half_size ->
+            id(right_down_dp, {i-x_half_size-1,j-y_half_size-1})
+        end
+      end
+    end)
+
+
+  {Enum.map(Enum.to_list(0..(y_size-1)), fn(j) ->
+      for i <- 0..(x_size-1) do
+        if id(bc_field, {i,j}) == nil do
+          id(pressure, {i,j}) + omega * id(dp_field, {i,j})
+        else
+          id(bc_field, {i,j})
+        end
+      end
+    end),
+   dp_field,
+   List.flatten(dp_field)
+   |> Enum.map(&(&1*&1))
+   |> :lists.sum}
+  end
+  defp deriveDPPartially pressure, right_side, bc_field, divide_val, {dx,dy}, {x_size,y_size}, {x_range,y_range} do
+    Enum.map(y_range, fn(j) ->
+      for i <- x_range do
         if id(bc_field, {i,j}) == nil do
           if 0<i && 0<j && i<(x_size-1) && j<(y_size-1) do
             (((id(pressure, {i+1,j}) + id(pressure, {i-1,j})) / (2*dx)) + ((id(pressure, {i,j+1}) + id(pressure, {i,j-1})) / (2*dy)) - id(right_side, {i,j})) / divide_val - id(pressure, {i,j})
@@ -102,19 +163,6 @@ defmodule MAC.Func do
           end
         end
     end)
-  {Enum.map(Enum.to_list(0..(y_size-1)), fn(j) ->
-      for i <- 0..(x_size-1) do
-        if id(bc_field, {i,j}) == nil do
-          id(pressure, {i,j}) + omega * id(dp_field, {i,j})
-        else
-          id(bc_field, {i,j})
-        end
-      end
-    end),
-   dp_field,
-   List.flatten(dp_field)
-   |> Enum.map(&(&1*&1))
-   |> :lists.sum}
   end
   
   def calcModField residual,
@@ -210,7 +258,13 @@ defmodule MAC.Func do
       ((dudx + dvdy) / dt) - ((dudx * dudx) + (dvdy * dvdy)) - 2*(dvdx * dudy)
     end
   end
-
+  defp calcRSidePartially {x_range, y_range}, velocitys_field, information do
+    for j <- y_range do
+      for i <- x_range do
+        calcRSide {i,j}, velocitys_field, information
+      end
+    end
+  end
 
   def id enumerable, {i, j} do
     Enum.at(Enum.at(enumerable, j), i)
