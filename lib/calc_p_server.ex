@@ -49,6 +49,7 @@ defmodule CalcPServer do
       {:calc, velocitys_field, pressure_field, bc_field, information, client} ->
         IO.puts "[Info] pressure calculation <#{inspect client}> #{inspect DateTime.utc_now}"
         {status, result} = derivePre velocitys_field, pressure_field, bc_field, information, calc_info
+        IO.puts "[Info] calculation finished <#{inspect client}> #{inspect DateTime.utc_now}"
         send client, {status, result, self}
     end
     calc_server calc_info
