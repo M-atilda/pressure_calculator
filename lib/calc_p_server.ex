@@ -14,7 +14,9 @@ defmodule CalcPServer do
   def hello, do: :world
   @name :g_p_calc_server
   import MAC.Func
-  
+
+  @compile [:native, {:hipe, [:verbose, :o3]}]
+
 
   #TODO: make server for each calculation (and give them original name)
   def calcPre velocitys_field, pressure_field, bc_field, information do
@@ -49,7 +51,7 @@ defmodule CalcPServer do
       {:calc, velocitys_field, pressure_field, bc_field, information, client} ->
         IO.puts "[Info] pressure calculation <#{inspect client}> #{inspect DateTime.utc_now}"
         {status, result} = derivePre velocitys_field, pressure_field, bc_field, information, calc_info
-        IO.puts "[Info] calculation finished <#{inspect client}> #{inspect DateTime.utc_now}"
+        IO.puts "[Info] pressure calculation finished <#{inspect client}> #{inspect DateTime.utc_now}"
         send client, {status, result, self}
     end
     calc_server calc_info

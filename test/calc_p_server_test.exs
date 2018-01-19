@@ -11,7 +11,7 @@ defmodule CalcPServerTest do
         if 49 == i || 49 == j do
           10
         else
-          nil
+          false
         end
       end end
     CalcPServer.genCalcServer %{:max_ite_times => 100,
@@ -25,7 +25,7 @@ defmodule CalcPServerTest do
         :dy => 0.1,
         :dt => 0.01,
         :Re => 70}
-    IO.inspect result
+    # IO.inspect result
     IO.inspect status
     
   end
