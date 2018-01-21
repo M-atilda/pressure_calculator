@@ -12,15 +12,14 @@ defmodule CalcPServer do
 
   """
   def hello, do: :world
-  @name :g_p_calc_server
   import MAC.Func
 
   @compile [:native, {:hipe, [:verbose, :o3]}]
 
 
   #TODO: make server for each calculation (and give them original name)
-  def calcPre velocitys_field, pressure_field, bc_field, information do
-    server = :global.whereis_name(@name)
+  def calcPre velocitys_field, pressure_field, bc_field, information, name do
+    server = :global.whereis_name(name)
     send server, {:calc, velocitys_field, pressure_field, bc_field, information, self}
     receive do
       {simbol, result, ^server} ->
@@ -34,16 +33,16 @@ defmodule CalcPServer do
     end
   end
 
-  def genCalcServer calc_info do
+  def genCalcServer name, calc_info do
     pid = spawn(__MODULE__, :calc_server, [calc_info])
-    :global.register_name(@name, pid)
+    :global.register_name(name, pid)
     IO.puts "[Info] start calc_P_server <#{inspect pid}>"
   end
-  def genCalcServer do
-    genCalcServer %{:max_ite_times => 100,
-                    :error_p => 0.0001,
-                    :omega => 1,
-                    :max_res_ratio => 0.5}
+  def genCalcServer name do
+    genCalcServer name, %{:max_ite_times => 100,
+                          :error_p => 0.0001,
+                          :omega => 1,
+                          :max_res_ratio => 0.5}
   end
 
   def calc_server calc_info do

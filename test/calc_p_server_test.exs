@@ -18,17 +18,17 @@ defmodule CalcPServerTest do
       |> List.to_tuple
     end
     |> List.to_tuple
-    CalcPServer.genCalcServer %{:max_ite_times => 100,
-                                :error_p => 0.0001,
-                                :omega => 1.0,
-                                :max_res_ratio => 1}
+    CalcPServer.genCalcServer "test", %{:max_ite_times => 100,
+                                        :error_p => 0.0001,
+                                        :omega => 1.0,
+                                        :max_res_ratio => 1}
     {status, result} = CalcPServer.calcPre {v_field, v_field}, p_field, bc_field,
       %{:x_size => 401,
         :y_size => 201,
         :dx => 0.1,
         :dy => 0.1,
         :dt => 0.01,
-        :Re => 70}
+        :Re => 70}, "test"
     IO.inspect result
     IO.inspect status
     
