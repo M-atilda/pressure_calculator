@@ -25,9 +25,9 @@ defmodule MAC.Func do
     left_down = Task.await(left_down_task)
     right_up = Task.await(right_up_task)
     right_down = Task.await(right_down_task)
-    up_side = Enum.map :lists.zip(left_up, right_up), fn({l, r}) -> l ++ r end
-    down_side = Enum.map :lists.zip(left_down, right_down), fn({l, r}) -> l ++ r end
-    right_side = up_side ++ down_side
+    up_side = Enum.map(:lists.zip(left_up, right_up), fn({l, r}) -> List.to_tuple(l ++ r) end)
+    down_side = Enum.map(:lists.zip(left_down, right_down), fn({l, r}) -> List.to_tuple(l ++ r) end)
+    right_side = (up_side ++ down_side) |> List.to_tuple
     derivePreRecurse(0, right_side, pressure, bc_field,
       information,
       max_ite_times, error_p, omega,
@@ -72,7 +72,10 @@ defmodule MAC.Func do
             modified_new_pressure = Enum.map(Enum.to_list(0..(y_size-1)), fn(j) ->
               for i <- 0..(x_size-1) do
                 id(new_pressure, {i,j}) + id(dp_field, {i,j})
-              end end)
+              end
+              |> List.to_tuple
+            end)
+            |> List.to_tuple
             derivePreRecurse(ite_times+1, right_side, modified_new_pressure, bc_field,
               information,
               max_ite_times, error_p, omega,
@@ -106,12 +109,12 @@ defmodule MAC.Func do
     left_down_res = Task.async(fn -> List.flatten(left_down_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
     right_up_res = Task.async(fn -> List.flatten(right_up_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
     right_down_res = Task.async(fn -> List.flatten(right_down_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
-    up_side = Enum.map :lists.zip(left_up, right_up), fn({l, r}) -> l ++ r end
-    down_side = Enum.map :lists.zip(left_down, right_down), fn({l, r}) -> l ++ r end
-    up_side_dp = Enum.map :lists.zip(left_up_dp, right_up_dp), fn({l, r}) -> l ++ r end
-    down_side_dp = Enum.map :lists.zip(left_down_dp, right_down_dp), fn({l, r}) -> l ++ r end
-    {up_side ++ down_side,
-     up_side_dp ++ down_side_dp,
+    up_side = Enum.map(:lists.zip(left_up, right_up), fn({l, r}) -> List.to_tuple(l ++ r) end)
+    down_side = Enum.map(:lists.zip(left_down, right_down), fn({l, r}) -> List.to_tuple(l ++ r) end)
+    up_side_dp = Enum.map(:lists.zip(left_up_dp, right_up_dp), fn({l, r}) -> List.to_tuple(l ++ r) end)
+    down_side_dp = Enum.map(:lists.zip(left_down_dp, right_down_dp), fn({l, r}) -> List.to_tuple(l ++ r) end)
+    {(up_side ++ down_side) |> List.to_tuple,
+     (up_side_dp ++ down_side_dp) |> List.to_tuple,
      Task.await(left_up_res) + Task.await(left_down_res) + Task.await(right_up_res) + Task.await(right_down_res)}
   end
   defp deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {x_range,y_range} do
@@ -158,7 +161,7 @@ defmodule MAC.Func do
     x_size = round((small_x_size - 1) / 2)
     y_size = round((small_y_size - 1) / 2)
     divide_val = 2*(1/(dx*dx) + 1/(dy*dy))
-    zero_pressure = List.duplicate(List.duplicate(0, x_size), y_size)
+    zero_pressure = Tuple.duplicate(Tuple.duplicate(0, x_size), y_size)
     {status, new_pre_field} = try do
                                calcModRecurse(0, zero_pressure, residual,
                                  dx, dy,
@@ -193,12 +196,17 @@ defmodule MAC.Func do
           ((((id(pressure, {max_i,j}) + id(pressure, {min_i,j})) / x_width) + ((id(pressure, {i,max_j}) + id(pressure, {i,min_j})) / y_width) - id(residual, {i,j}))) / divide_val
         end
       end
+      |> List.to_tuple
     end)
+    |> List.to_tuple
     res_value = :lists.sum List.flatten(dp_field)
     new_pre_field = Enum.map(Enum.to_list(0..(y_size-1)), fn(j) ->
       for i <- 0..(x_size-1) do
         id(pressure, {i,j}) - id(dp_field, {i,j})
-      end end)
+      end
+      |> List.to_tuple
+    end)
+    |> List.to_tuple
     if res_value < error_p do
       {:ok, new_pre_field}
     else
@@ -247,7 +255,7 @@ defmodule MAC.Func do
   end
 
   def id enumerable, {i, j} do
-    Enum.at(Enum.at(enumerable, j), i)
+    elem(elem(enumerable, j), i)
   end
   
 
@@ -256,7 +264,9 @@ defmodule MAC.Func do
       for i <- 0..(round((x_size-1)/2)-1) do
         id(field, {2*i+1,2*j+1}) / 4 + (id(field, {2*i,2*j+1}) + id(field, {2*i+2,2*j+1}) + id(field, {2*i+1,2*j}) + id(field, {2*i+1,2*j+2})) / 8 + (id(field, {2*i,2*j}) + id(field, {2*i,2*j+2}) + id(field, {2*i+2,2*j}) + id(field, {2*i+2,2*j+2})) / 16
       end
-    end)    
+      |> List.to_tuple
+    end)
+    |> List.to_tuple
   end
 
   defp extendField field, %{:x_size => x_size, :y_size => y_size} do
@@ -277,7 +287,9 @@ defmodule MAC.Func do
             0.25 * (id(field, {round(i/2),round(j/2)}) + id(field, {round(i/2),round(j/2)-1}) + id(field, {round(i/2)-1,round(j/2)}) + id(field, {round(i/2)-1,round(j/2)-1}))
         end
       end
+      |> List.to_tuple
     end)
+    |> List.to_tuple
   end
 
 

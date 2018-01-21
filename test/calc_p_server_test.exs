@@ -4,8 +4,9 @@ defmodule CalcPServerTest do
   @tag timeout: 3600000
 
   test "calculate next step's pressure" do
-    v_field = List.duplicate([0] ++ List.duplicate(1, 399) ++ [2], 201)
-    p_field = List.duplicate([0] ++ List.duplicate(1, 399) ++ [2], 201)
+    line = List.to_tuple [0.0|List.duplicate(1.0, 399) ++ [2]]
+    v_field = Tuple.duplicate(line, 201)
+    p_field = Tuple.duplicate(line, 201)
     bc_field = for j <- 0..200 do
       for i <- 0..400 do
         if 49 == i || 49 == j do
@@ -13,7 +14,10 @@ defmodule CalcPServerTest do
         else
           false
         end
-      end end
+      end
+      |> List.to_tuple
+    end
+    |> List.to_tuple
     CalcPServer.genCalcServer %{:max_ite_times => 100,
                                 :error_p => 0.0001,
                                 :omega => 1,
@@ -25,7 +29,7 @@ defmodule CalcPServerTest do
         :dy => 0.1,
         :dt => 0.01,
         :Re => 70}
-    # IO.inspect result
+    IO.inspect result
     IO.inspect status
     
   end
