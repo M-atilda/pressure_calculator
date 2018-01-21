@@ -182,7 +182,7 @@ defmodule MAC.Func do
     dx, dy,
     x_size, y_size,
     max_ite_times, error_p, divide_val do
-    dp_field = Enum.map(Enum.to_list(0..(y_size-1)), fn(j) ->
+    dp_field_list = Enum.map(Enum.to_list(0..(y_size-1)), fn(j) ->
       for i <- 0..(x_size-1) do
         if 0<i && 0<j && i<(x_size-1) && j<(y_size-1) do
           ((((id(pressure, {i+1,j}) + id(pressure, {i-1,j})) / (2*dx)) + ((id(pressure, {i,j+1}) + id(pressure, {i,j-1})) / (2*dy))) - id(residual, {i,j})) / divide_val
@@ -196,10 +196,9 @@ defmodule MAC.Func do
           ((((id(pressure, {max_i,j}) + id(pressure, {min_i,j})) / x_width) + ((id(pressure, {i,max_j}) + id(pressure, {i,min_j})) / y_width) - id(residual, {i,j}))) / divide_val
         end
       end
-      |> List.to_tuple
     end)
-    |> List.to_tuple
-    res_value = :lists.sum List.flatten(dp_field)
+    res_value = :lists.sum List.flatten(dp_field_list)
+    dp_field = List.to_tuple Enum.map(dp_field_list, &(List.to_tuple &1))
     new_pre_field = Enum.map(Enum.to_list(0..(y_size-1)), fn(j) ->
       for i <- 0..(x_size-1) do
         id(pressure, {i,j}) - id(dp_field, {i,j})

@@ -20,8 +20,8 @@ defmodule CalcPServerTest do
     |> List.to_tuple
     CalcPServer.genCalcServer %{:max_ite_times => 100,
                                 :error_p => 0.0001,
-                                :omega => 1,
-                                :max_res_ratio => 0.5}
+                                :omega => 1.0,
+                                :max_res_ratio => 1}
     {status, result} = CalcPServer.calcPre {v_field, v_field}, p_field, bc_field,
       %{:x_size => 401,
         :y_size => 201,
