@@ -19,7 +19,7 @@ defmodule CalcPServer do
 
   #TODO: make server for each calculation (and give them original name)
   def calcPre velocitys_field, pressure_field, bc_field, information, name do
-    server = :global.whereis_name(name)
+    server = :global.whereis_name(name <> "_p")
     send server, {:calc, velocitys_field, pressure_field, bc_field, information, self}
     receive do
       {simbol, result, ^server} ->
@@ -35,7 +35,7 @@ defmodule CalcPServer do
 
   def genCalcServer name, calc_info do
     pid = spawn(__MODULE__, :calc_server, [calc_info])
-    :global.register_name(name, pid)
+    :global.register_name(name <> "_p", pid)
     IO.puts "[Info] start calc_P_server <#{inspect pid}>"
   end
   def genCalcServer name do
