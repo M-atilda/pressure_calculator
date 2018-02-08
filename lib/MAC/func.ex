@@ -59,7 +59,7 @@ defmodule MAC.Func do
         if new_res_value < error_p do
           {:ok, new_pressure}
         else
-          if (ite_times < 3) || (new_res_value < (max_res_ratio * res_ratio * res_value)) do
+          if (rem(ite_times, 5) == 0) || (new_res_value < (max_res_ratio * res_ratio * res_value)) do
             derivePreRecurse(ite_times+1, right_side, new_pressure, bc_field,
               information,
               max_ite_times, error_p, omega,
@@ -187,7 +187,7 @@ defmodule MAC.Func do
   defp splitLine [{l, r}|tail], acm_l, acm_r do
     splitLine tail, [l|acm_l], [r|acm_r]
   end
-  
+
   def calcModField residual,
     %{:dx => small_dx,
       :dy => small_dy,
@@ -257,7 +257,7 @@ defmodule MAC.Func do
       end
     end
   end
-  
+
 
   defp calcRSide({i,j}, {x_velocity, y_velocity}, dx2,dy2, x_size,y_size, dt) when 0<i and 0<j and i<(x_size-1) and j<(y_size-1) do
     dudx = (id(x_velocity, {i+1,j}) - id(x_velocity, {i-1,j})) / dx2
@@ -294,7 +294,7 @@ defmodule MAC.Func do
   def id enumerable, {i, j} do
     elem(elem(enumerable, j), i)
   end
-  
+
 
   defp restrictField field, %{:x_size => x_size, :y_size => y_size} do
     Enum.map(Enum.to_list(0..(round((y_size-1)/2)-1)), fn(j) ->
