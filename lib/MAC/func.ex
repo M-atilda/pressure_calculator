@@ -59,7 +59,7 @@ defmodule MAC.Func do
         if new_res_value < error_p do
           {:ok, new_pressure}
         else
-          if (rem(ite_times, 5) == 0) || (new_res_value < (max_res_ratio * res_ratio * res_value)) do
+          if (rem(ite_times, 5) != 0) || (new_res_value < (max_res_ratio * res_ratio * res_value)) do
             derivePreRecurse(ite_times+1, right_side, new_pressure, bc_field,
               information,
               max_ite_times, error_p, omega,
