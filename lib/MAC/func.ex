@@ -116,7 +116,7 @@ defmodule MAC.Func do
     down_side_dp = Enum.map(:lists.zip(left_down_dp, right_down_dp), fn({l, r}) -> List.to_tuple(l ++ r) end)
     {(up_side ++ down_side) |> List.to_tuple,
     (up_side_dp ++ down_side_dp) |> List.to_tuple,
-     Task.await(left_up_res) + Task.await(left_down_res) + Task.await(right_up_res) + Task.await(right_down_res)}
+     (Task.await(left_up_res) + Task.await(left_down_res) + Task.await(right_up_res) + Task.await(right_down_res)) / (x_size * y_size)}
   end
   defp deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {x_range,y_range} do
     for j <- y_range do
@@ -268,17 +268,18 @@ defmodule MAC.Func do
     ((dudx + dvdy) / dt) - ((dudx * dudx) + (dvdy * dvdy)) - 2*(dvdx * dudy)
   end
   defp calcRSide {i,j}, {x_velocity, y_velocity}, dx2,dy2, x_size,y_size, dt do
-    min_i = max 0, i-1
-    max_i = min (x_size-1), i+1
-    min_j = max 0, j-1
-    max_j = min (y_size-1), j+1
-    x_width = (dx2 / 2) * (max_i - min_i)
-    y_width = (dy2 / 2) * (max_j - min_j)
-    dudx = (id(x_velocity, {max_i,j}) - id(x_velocity, {min_i,j})) / x_width
-    dvdy = (id(y_velocity, {i,max_j}) - id(y_velocity, {i,min_j})) / y_width
-    dudy = (id(x_velocity, {i,max_j}) - id(x_velocity, {i,min_j})) / y_width
-    dvdx = (id(y_velocity, {max_i,j}) - id(y_velocity, {min_i,j})) / x_width
-    ((dudx + dvdy) / dt) - ((dudx * dudx) + (dvdy * dvdy)) - 2*(dvdx * dudy)
+    # min_i = max 0, i-1
+    # max_i = min (x_size-1), i+1
+    # min_j = max 0, j-1
+    # max_j = min (y_size-1), j+1
+    # x_width = (dx2 / 2) * (max_i - min_i)
+    # y_width = (dy2 / 2) * (max_j - min_j)
+    # dudx = (id(x_velocity, {max_i,j}) - id(x_velocity, {min_i,j})) / x_width
+    # dvdy = (id(y_velocity, {i,max_j}) - id(y_velocity, {i,min_j})) / y_width
+    # dudy = (id(x_velocity, {i,max_j}) - id(x_velocity, {i,min_j})) / y_width
+    # dvdx = (id(y_velocity, {max_i,j}) - id(y_velocity, {min_i,j})) / x_width
+    # ((dudx + dvdy) / dt) - ((dudx * dudx) + (dvdy * dvdy)) - 2*(dvdx * dudy)
+    0.0
   end
   defp calcRSidePartially {x_range, y_range}, velocitys_field,
     %{:dx => dx, :dy => dy, :dt => dt,
