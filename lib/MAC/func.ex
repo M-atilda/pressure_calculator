@@ -125,13 +125,14 @@ defmodule MAC.Func do
           if 0<i && 0<j && i<(x_size-1) && j<(y_size-1) do
             (((id(pressure, {i+1,j}) + id(pressure, {i-1,j})) / (dx*dx)) + ((id(pressure, {i,j+1}) + id(pressure, {i,j-1})) / (dy*dy)) - id(right_side, {i,j})) / divide_val - id(pressure, {i,j})
           else
-            min_i = max 0, i-1
-            max_i = min (x_size-1), i+1
-            min_j = max 0, j-1
-            max_j = min (y_size-1), j+1
-            x_width = dx * (max_i - min_i)
-            y_width = dy * (max_j - min_j)
-            (((id(pressure, {max_i,j}) + id(pressure, {min_i,j})) / x_width) + ((id(pressure, {i,max_j}) + id(pressure, {i,min_j})) / y_width) - id(right_side, {i,j})) / divide_val - id(pressure, {i,j})
+            # min_i = max 0, i-1
+            # max_i = min (x_size-1), i+1
+            # min_j = max 0, j-1
+            # max_j = min (y_size-1), j+1
+            # x_width = dx * (max_i - min_i)
+            # y_width = dy * (max_j - min_j)
+            # (((id(pressure, {max_i,j}) + id(pressure, {min_i,j})) / x_width) + ((id(pressure, {i,max_j}) + id(pressure, {i,min_j})) / y_width) - id(right_side, {i,j})) / divide_val - id(pressure, {i,j})
+            0.0
           end
         else
           0.0
