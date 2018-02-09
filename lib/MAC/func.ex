@@ -54,7 +54,7 @@ defmodule MAC.Func do
         try do
           IO.puts "(P) #{round(:math.log(new_res_value) / :math.log(error_p) * 100)}% #{inspect DateTime.utc_now}"
         rescue
-          _ -> IO.puts "(P) residual value is invalid value. #{inspect DateTime.utc_now}"
+          _ -> IO.puts "(P) residual value is invalid value. #{inspect new_res_value} #{inspect DateTime.utc_now}"
         end
         if new_res_value < error_p do
           {:ok, new_pressure}
