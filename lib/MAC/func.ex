@@ -15,19 +15,22 @@ defmodule MAC.Func do
       :error_p => error_p,
       :omega => omega,
       :max_res_ratio => max_res_ratio} do
-    x_half_size = round((x_size-1) / 2)
-    y_half_size = round((y_size-1) / 2)
-    left_up_task = Task.async(fn -> calcRSidePartially {0..x_half_size, 0..y_half_size}, velocitys_field, information end)
-    left_down_task = Task.async(fn -> calcRSidePartially {0..x_half_size, (y_half_size+1)..(y_size-1)}, velocitys_field, information end)
-    right_up_task = Task.async(fn -> calcRSidePartially {(x_half_size+1)..(x_size-1), 0..y_half_size}, velocitys_field, information end)
-    right_down_task = Task.async(fn -> calcRSidePartially {(x_half_size+1)..(x_size-1), (y_half_size+1)..(y_size-1)}, velocitys_field, information end)
-    left_up = Task.await(left_up_task)
-    left_down = Task.await(left_down_task)
-    right_up = Task.await(right_up_task)
-    right_down = Task.await(right_down_task)
-    up_side = Enum.map(:lists.zip(left_up, right_up), fn({l, r}) -> List.to_tuple(l ++ r) end)
-    down_side = Enum.map(:lists.zip(left_down, right_down), fn({l, r}) -> List.to_tuple(l ++ r) end)
-    right_side = (up_side ++ down_side) |> List.to_tuple
+    # x_half_size = round((x_size-1) / 2)
+    # y_half_size = round((y_size-1) / 2)
+    # left_up_task = Task.async(fn -> calcRSidePartially {0..x_half_size, 0..y_half_size}, velocitys_field, information end)
+    # left_down_task = Task.async(fn -> calcRSidePartially {0..x_half_size, (y_half_size+1)..(y_size-1)}, velocitys_field, information end)
+    # right_up_task = Task.async(fn -> calcRSidePartially {(x_half_size+1)..(x_size-1), 0..y_half_size}, velocitys_field, information end)
+    # right_down_task = Task.async(fn -> calcRSidePartially {(x_half_size+1)..(x_size-1), (y_half_size+1)..(y_size-1)}, velocitys_field, information end)
+    # left_up = Task.await(left_up_task)
+    # left_down = Task.await(left_down_task)
+    # right_up = Task.await(right_up_task)
+    # right_down = Task.await(right_down_task)
+    # up_side = Enum.map(:lists.zip(left_up, right_up), fn({l, r}) -> List.to_tuple(l ++ r) end)
+    # down_side = Enum.map(:lists.zip(left_down, right_down), fn({l, r}) -> List.to_tuple(l ++ r) end)
+    # right_side = (up_side ++ down_side) |> List.to_tuple
+    right_side = calcRSidePartially({0..(x_size-1), 0..(y_size-1)}, velocitys_field, information)
+              |> Enum.map(&(List.to_tuple &1))
+              |> List.to_tuple
     derivePreRecurse(0, right_side, pressure, bc_field,
       information,
       max_ite_times, error_p, omega,
@@ -96,27 +99,31 @@ defmodule MAC.Func do
     divide_val = 2*(1/(dx*dx) + 1/(dy*dy))
 
     # divide to 4 spaces for pararell processing
-    x_half_size = round((x_size-1) / 2)
-    y_half_size = round((y_size-1) / 2)
-    left_up_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {0..x_half_size, 0..y_half_size} end)
-    left_down_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {0..x_half_size, (y_half_size+1)..(y_size-1)} end)
-    right_up_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {(x_half_size+1)..(x_size-1), 0..y_half_size} end)
-    right_down_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {(x_half_size+1)..(x_size-1), (y_half_size+1)..(y_size-1)} end)
-    {left_up, left_up_dp} = Task.await(left_up_dp_task)
-    {left_down, left_down_dp} = Task.await(left_down_dp_task)
-    {right_up, right_up_dp} = Task.await(right_up_dp_task)
-    {right_down, right_down_dp} = Task.await(right_down_dp_task)
-    left_up_res = Task.async(fn -> List.flatten(left_up_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
-    left_down_res = Task.async(fn -> List.flatten(left_down_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
-    right_up_res = Task.async(fn -> List.flatten(right_up_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
-    right_down_res = Task.async(fn -> List.flatten(right_down_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
-    up_side = Enum.map(:lists.zip(left_up, right_up), fn({l, r}) -> List.to_tuple(l ++ r) end)
-    down_side = Enum.map(:lists.zip(left_down, right_down), fn({l, r}) -> List.to_tuple(l ++ r) end)
-    up_side_dp = Enum.map(:lists.zip(left_up_dp, right_up_dp), fn({l, r}) -> List.to_tuple(l ++ r) end)
-    down_side_dp = Enum.map(:lists.zip(left_down_dp, right_down_dp), fn({l, r}) -> List.to_tuple(l ++ r) end)
-    {(up_side ++ down_side) |> List.to_tuple,
-    (up_side_dp ++ down_side_dp) |> List.to_tuple,
-     (Task.await(left_up_res) + Task.await(left_down_res) + Task.await(right_up_res) + Task.await(right_down_res)) / (x_size * y_size)}
+    # x_half_size = round((x_size-1) / 2)
+    # y_half_size = round((y_size-1) / 2)
+    # left_up_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {0..x_half_size, 0..y_half_size} end)
+    # left_down_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {0..x_half_size, (y_half_size+1)..(y_size-1)} end)
+    # right_up_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {(x_half_size+1)..(x_size-1), 0..y_half_size} end)
+    # right_down_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {(x_half_size+1)..(x_size-1), (y_half_size+1)..(y_size-1)} end)
+    # {left_up, left_up_dp} = Task.await(left_up_dp_task)
+    # {left_down, left_down_dp} = Task.await(left_down_dp_task)
+    # {right_up, right_up_dp} = Task.await(right_up_dp_task)
+    # {right_down, right_down_dp} = Task.await(right_down_dp_task)
+    # left_up_res = Task.async(fn -> List.flatten(left_up_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
+    # left_down_res = Task.async(fn -> List.flatten(left_down_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
+    # right_up_res = Task.async(fn -> List.flatten(right_up_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
+    # right_down_res = Task.async(fn -> List.flatten(right_down_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
+    # up_side = Enum.map(:lists.zip(left_up, right_up), fn({l, r}) -> List.to_tuple(l ++ r) end)
+    # down_side = Enum.map(:lists.zip(left_down, right_down), fn({l, r}) -> List.to_tuple(l ++ r) end)
+    # up_side_dp = Enum.map(:lists.zip(left_up_dp, right_up_dp), fn({l, r}) -> List.to_tuple(l ++ r) end)
+    # down_side_dp = Enum.map(:lists.zip(left_down_dp, right_down_dp), fn({l, r}) -> List.to_tuple(l ++ r) end)
+    {new_pressure, dp} = deriveDPPartially(pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {0..(x_size-1), 0..(y_size-1)})
+    # {(up_side ++ down_side) |> List.to_tuple,
+    # (up_side_dp ++ down_side_dp) |> List.to_tuple,
+    #  (Task.await(left_up_res) + Task.await(left_down_res) + Task.await(right_up_res) + Task.await(right_down_res)) / (x_size * y_size)}
+    {new_pressure |> Enum.map(&(List.to_tuple &1)) |> List.to_tuple,
+     dp |> Enum.map(&(List.to_tuple &1)) |> List.to_tuple,
+     List.flatten(dp) |> Enum.map(&(&1*&1)) |> :lists.sum}
   end
   defp deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {x_range,y_range} do
     for j <- y_range do
