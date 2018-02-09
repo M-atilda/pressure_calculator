@@ -62,28 +62,28 @@ defmodule MAC.Func do
         if new_res_value < error_p do
           {:ok, new_pressure}
         else
-          if (rem(ite_times, 5) != 0) || (new_res_value < (max_res_ratio * res_ratio * res_value)) do
-            derivePreRecurse(ite_times+1, right_side, new_pressure, bc_field,
-              information,
-              max_ite_times, error_p, omega,
-              max_res_ratio, new_res_value, new_res_value / res_value)
-          else
-            #NOTE: calculate modification equation in rough grid
-            restrict_res_field = restrictField new_res_field, information
-            modified_pre_field = calcModField restrict_res_field, information, max_ite_times, error_p
-            dp_field = extendField modified_pre_field, information
-            modified_new_pressure = Enum.map(Enum.to_list(0..(y_size-1)), fn(j) ->
-              for i <- 0..(x_size-1) do
-                id(new_pressure, {i,j}) + id(dp_field, {i,j})
-              end
-              |> List.to_tuple
-            end)
-            |> List.to_tuple
-            derivePreRecurse(ite_times+1, right_side, modified_new_pressure, bc_field,
-              information,
-              max_ite_times, error_p, omega,
-              max_res_ratio, new_res_value, new_res_value / res_value)
-          end
+          # if (rem(ite_times, 5) != 0) || (new_res_value < (max_res_ratio * res_ratio * res_value)) do
+          derivePreRecurse(ite_times+1, right_side, new_pressure, bc_field,
+            information,
+            max_ite_times, error_p, omega,
+            max_res_ratio, new_res_value, new_res_value / res_value)
+          # else
+          #   #NOTE: calculate modification equation in rough grid
+          #   restrict_res_field = restrictField new_res_field, information
+          #   modified_pre_field = calcModField restrict_res_field, information, max_ite_times, error_p
+          #   dp_field = extendField modified_pre_field, information
+          #   modified_new_pressure = Enum.map(Enum.to_list(0..(y_size-1)), fn(j) ->
+          #     for i <- 0..(x_size-1) do
+          #       id(new_pressure, {i,j}) + id(dp_field, {i,j})
+          #     end
+          #     |> List.to_tuple
+          #   end)
+          #   |> List.to_tuple
+          #   derivePreRecurse(ite_times+1, right_side, modified_new_pressure, bc_field,
+          #     information,
+          #     max_ite_times, error_p, omega,
+          #     max_res_ratio, new_res_value, new_res_value / res_value)
+          # end
         end
       else
         {:error, pressure}
