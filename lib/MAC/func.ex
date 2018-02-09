@@ -121,9 +121,10 @@ defmodule MAC.Func do
     # {(up_side ++ down_side) |> List.to_tuple,
     # (up_side_dp ++ down_side_dp) |> List.to_tuple,
     #  (Task.await(left_up_res) + Task.await(left_down_res) + Task.await(right_up_res) + Task.await(right_down_res)) / (x_size * y_size)}
+    residual = List.flatten(dp) |> Enum.map(&(&1*&1)) |> :lists.sum
     {new_pressure |> Enum.map(&(List.to_tuple &1)) |> List.to_tuple,
      dp |> Enum.map(&(List.to_tuple &1)) |> List.to_tuple,
-     List.flatten(dp) |> Enum.map(&(&1*&1)) |> :lists.sum}
+     residual / (x_size * y_size)}
   end
   defp deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {x_range,y_range} do
     for j <- y_range do
