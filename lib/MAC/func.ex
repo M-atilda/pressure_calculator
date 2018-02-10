@@ -121,24 +121,17 @@ defmodule MAC.Func do
   defp deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {x_range,y_range} do
     for j <- y_range do
       for i <- x_range do
-        dp = if !id(bc_field, {i,j}) do
+        new_p = if !id(bc_field, {i,j}) do
           if 0<i && 0<j && i<(x_size-1) && j<(y_size-1) do
-            (((id(pressure, {i+1,j}) + id(pressure, {i-1,j})) / (dx*dx)) + ((id(pressure, {i,j+1}) + id(pressure, {i,j-1})) / (dy*dy)) - id(right_side, {i,j})) / divide_val - id(pressure, {i,j})
+            (((id(pressure, {i+1,j}) + id(pressure, {i-1,j})) / (dx*dx)) + ((id(pressure, {i,j+1}) + id(pressure, {i,j-1})) / (dy*dy)) - id(right_side, {i,j})) / divide_val
           else
-            # min_i = max 0, i-1
-            # max_i = min (x_size-1), i+1
-            # min_j = max 0, j-1
-            # max_j = min (y_size-1), j+1
-            # x_width = dx * (max_i - min_i)
-            # y_width = dy * (max_j - min_j)
-            # (((id(pressure, {max_i,j}) + id(pressure, {min_i,j})) / x_width) + ((id(pressure, {i,max_j}) + id(pressure, {i,min_j})) / y_width) - id(right_side, {i,j})) / divide_val - id(pressure, {i,j})
-            0.0
+            id(pressure, {i,j})
           end
         else
           0.0
         end
         if !id(bc_field, {i,j}) do
-          {id(pressure, {i,j}) + omega * dp, dp}
+          {new_p, new_p - id(pressure, {i,j})}
         else
           if id(bc_field, {i,j}) == "null" do
             cond do
@@ -172,7 +165,7 @@ defmodule MAC.Func do
                 {0.0, 0.0}
             end
           else
-            {id(bc_field, {i,j}), dp}
+            {id(bc_field, {i,j}), 0.0}
           end
         end
       end
