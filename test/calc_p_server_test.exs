@@ -18,7 +18,7 @@ defmodule CalcPServerTest do
       |> List.to_tuple
     end
     |> List.to_tuple
-    CalcPServer.genCalcServer "test", %{:max_ite_times => 100,
+    CalcPServer.genCalcServer "test", %{:max_ite_times => 1000,
                                         :error_p => 0.0001,
                                         :omega => 1.0,
                                         :max_res_ratio => 1}

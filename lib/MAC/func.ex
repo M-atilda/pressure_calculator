@@ -95,82 +95,76 @@ defmodule MAC.Func do
 
     divide_val = 2*(1/(dx*dx) + 1/(dy*dy))
 
-    # divide to 4 spaces for pararell processing
-    x_half_size = round((x_size-1) / 2)
-    y_half_size = round((y_size-1) / 2)
-    left_up_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {0..x_half_size, 0..y_half_size} end)
-    left_down_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {0..x_half_size, (y_half_size+1)..(y_size-1)} end)
-    right_up_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {(x_half_size+1)..(x_size-1), 0..y_half_size} end)
-    right_down_dp_task = Task.async(fn -> deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {(x_half_size+1)..(x_size-1), (y_half_size+1)..(y_size-1)} end)
-    {left_up, left_up_dp} = Task.await(left_up_dp_task)
-    {left_down, left_down_dp} = Task.await(left_down_dp_task)
-    {right_up, right_up_dp} = Task.await(right_up_dp_task)
-    {right_down, right_down_dp} = Task.await(right_down_dp_task)
-    left_up_res = Task.async(fn -> List.flatten(left_up_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
-    left_down_res = Task.async(fn -> List.flatten(left_down_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
-    right_up_res = Task.async(fn -> List.flatten(right_up_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
-    right_down_res = Task.async(fn -> List.flatten(right_down_dp) |> Enum.map(&(&1*&1)) |> :lists.sum end)
-    up_side = Enum.map(:lists.zip(left_up, right_up), fn({l, r}) -> List.to_tuple(l ++ r) end)
-    down_side = Enum.map(:lists.zip(left_down, right_down), fn({l, r}) -> List.to_tuple(l ++ r) end)
-    up_side_dp = Enum.map(:lists.zip(left_up_dp, right_up_dp), fn({l, r}) -> List.to_tuple(l ++ r) end)
-    down_side_dp = Enum.map(:lists.zip(left_down_dp, right_down_dp), fn({l, r}) -> List.to_tuple(l ++ r) end)
-    {(up_side ++ down_side) |> List.to_tuple,
-    (up_side_dp ++ down_side_dp) |> List.to_tuple,
-     :math.sqrt((Task.await(left_up_res) + Task.await(left_down_res) + Task.await(right_up_res) + Task.await(right_down_res)) / (x_size * y_size))}
+    {new_pre_field, new_dp_field} = derivePreGS [], [], {0,0}, pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}
+    residual = new_dp_field |> List.flatten |> Enum.map(&(&1*&1)) |> :lists.sum
+    {new_pre_field |> Enum.map(&(List.to_tuple &1)) |> List.to_tuple,
+     new_dp_field |> Enum.map(&(List.to_tuple &1)) |> List.to_tuple,
+     :math.sqrt(residual / (x_size * y_size))}
   end
-  defp deriveDPPartially pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}, {x_range,y_range} do
-    for j <- y_range do
-      for i <- x_range do
-        new_p = if !id(bc_field, {i,j}) do
-          if 0<i && 0<j && i<(x_size-1) && j<(y_size-1) do
-            (((id(pressure, {i+1,j}) + id(pressure, {i-1,j})) / (dx*dx)) + ((id(pressure, {i,j+1}) + id(pressure, {i,j-1})) / (dy*dy)) - id(right_side, {i,j})) / divide_val
-          else
-            id(pressure, {i,j})
-          end
-        else
-          0.0
-        end
-        if !id(bc_field, {i,j}) do
-          {new_p, new_p - id(pressure, {i,j})}
-        else
-          if id(bc_field, {i,j}) == "null" do
+  defp derivePreGS(acm_pre_line, acm_pre_field, {i,j}, pressure, _right_side, bc_field, _divide_val, _omega, {_dx,_dy}, {x_size,y_size}) when i == (x_size-1) and j == (y_size-1) do
+    val = if !id(bc_field, {i,j}), do: id(pressure, {i,j}), else: id(bc_field, {i,j})
+    [Enum.reverse([{val, 0.0}|acm_pre_line])|acm_pre_field] |> Enum.reverse |> splitField([], [])
+  end
+  defp derivePreGS [], acm_pre_field, {0,j}, pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size} do
+    val = if !id(bc_field, {0,j}), do: id(pressure, {0,j}), else: id(bc_field, {0,j})
+    derivePreGS [{val, 0.0}], acm_pre_field, {1,j}, pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}
+  end
+  defp derivePreGS(acm_pre_line, acm_pre_field, {i,j}, pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}) when i == (x_size-1) do
+    # val = if !id(bc_field, {x_size-1,j}), do: id(pressure, {x_size-1,j}), else: id(bc_field, {x_size-1,j})
+    val = if !id(bc_field, {x_size-1,j}), do: id(pressure, {x_size-1,j}), else: id(bc_field, {x_size-1,j})
+    derivePreGS [], [Enum.reverse([{val, 0.0}|acm_pre_line])|acm_pre_field], {0,j+1}, pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}
+  end
+  defp derivePreGS acm_pre_line, acm_pre_field, {i,0}, pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size} do
+    val = if !id(bc_field, {i,0}), do: id(pressure, {i,0}), else: id(bc_field, {i,0})
+    derivePreGS [{val, 0.0}|acm_pre_line], acm_pre_field, {i+1,0}, pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}
+  end
+  defp derivePreGS(acm_pre_line, acm_pre_field, {i,j}, pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}) when j == (y_size-1) do
+    val = if !id(bc_field, {i,y_size-1}), do: id(pressure, {i,y_size-1}), else: id(bc_field, {i,y_size-1})
+    derivePreGS [{val, 0.0}|acm_pre_line], acm_pre_field, {i+1,j}, pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}
+  end
+  defp derivePreGS [p_i1m_t|_tail_line]=acm_pre_line, [p_j1m_t_line|_tail_field]=acm_pre_field, {i,j}, pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size} do
+    {p_i1m, _dp} = p_i1m_t
+    {p_j1m, _dp} = Enum.at(p_j1m_t_line, i)
+    new_p = (((id(pressure, {i+1,j}) + p_i1m) / (dx*dx)) + ((id(pressure, {i,j+1}) + p_j1m) / (dy*dy)) - id(right_side, {i,j})) / divide_val
+    new_result = if !id(bc_field, {i,j}) do
+      {new_p, new_p - id(pressure, {i,j})}
+    else
+      if id(bc_field, {i,j}) == "null" do
+        cond do
+          id(bc_field, {i-1,j}) != "null" ->
             cond do
-              id(bc_field, {i-1,j}) != "null" ->
-                cond do
-                  id(bc_field, {i,j+1}) != "null" ->
-                    #top left
-                    {id(pressure, {i-1,j+1}), 0.0}
-                  id(bc_field, {i,j-1}) != "null" ->
-                    #bottom left
-                    {id(pressure, {i-1,j-1}), 0.0}
-                  true ->
-                    {id(pressure, {i-1,j}), 0.0}
-                end
-              id(bc_field, {i+1,j}) != "null" ->
-                cond do
-                  id(bc_field, {i,j+1}) != "null" ->
-                    #top right
-                    {id(pressure, {i+1,j+1}), 0.0}
-                  id(bc_field, {i,j-1}) != "null" ->
-                    #top left
-                    {id(pressure, {i+1,j-1}), 0.0}
-                  true ->
-                    {id(pressure, {i+1,j}), 0.0}
-                end
-              id(bc_field, {i,j-1}) != "null" ->
-                {id(pressure, {i,j-1}), 0.0}
               id(bc_field, {i,j+1}) != "null" ->
-                {id(pressure, {i,j+1}), 0.0}
+                #top left
+                {id(pressure, {i-1,j+1}), 0.0}
+              id(bc_field, {i,j-1}) != "null" ->
+                #bottom left
+                {id(pressure, {i-1,j-1}), 0.0}
               true ->
-                {0.0, 0.0}
+                {id(pressure, {i-1,j}), 0.0}
             end
-          else
-            {id(bc_field, {i,j}), 0.0}
-          end
+          id(bc_field, {i+1,j}) != "null" ->
+            cond do
+              id(bc_field, {i,j+1}) != "null" ->
+                #top right
+                {id(pressure, {i+1,j+1}), 0.0}
+              id(bc_field, {i,j-1}) != "null" ->
+                #top left
+                {id(pressure, {i+1,j-1}), 0.0}
+              true ->
+                {id(pressure, {i+1,j}), 0.0}
+            end
+          id(bc_field, {i,j-1}) != "null" ->
+            {id(pressure, {i,j-1}), 0.0}
+          id(bc_field, {i,j+1}) != "null" ->
+            {id(pressure, {i,j+1}), 0.0}
+          true ->
+            {0.0, 0.0}
         end
+      else
+        {id(bc_field, {i,j}), 0.0}
       end
     end
-    |> splitField([], [])
+    derivePreGS [new_result|acm_pre_line], acm_pre_field, {i+1,j}, pressure, right_side, bc_field, divide_val, omega, {dx,dy}, {x_size,y_size}
   end
   defp splitField([], acm_l, acm_r), do: {Enum.reverse(acm_l), Enum.reverse(acm_r)}
   defp splitField [head|tail], acm_l, acm_r do
@@ -261,17 +255,6 @@ defmodule MAC.Func do
     ((dudx + dvdy) / dt) - ((dudx * dudx) + (dvdy * dvdy)) - 2*(dvdx * dudy)
   end
   defp calcRSide {i,j}, {x_velocity, y_velocity}, dx2,dy2, x_size,y_size, dt do
-    # min_i = max 0, i-1
-    # max_i = min (x_size-1), i+1
-    # min_j = max 0, j-1
-    # max_j = min (y_size-1), j+1
-    # x_width = (dx2 / 2) * (max_i - min_i)
-    # y_width = (dy2 / 2) * (max_j - min_j)
-    # dudx = (id(x_velocity, {max_i,j}) - id(x_velocity, {min_i,j})) / x_width
-    # dvdy = (id(y_velocity, {i,max_j}) - id(y_velocity, {i,min_j})) / y_width
-    # dudy = (id(x_velocity, {i,max_j}) - id(x_velocity, {i,min_j})) / y_width
-    # dvdx = (id(y_velocity, {max_i,j}) - id(y_velocity, {min_i,j})) / x_width
-    # ((dudx + dvdy) / dt) - ((dudx * dudx) + (dvdy * dvdy)) - 2*(dvdx * dudy)
     0.0
   end
   defp calcRSidePartially {x_range, y_range}, velocitys_field,
